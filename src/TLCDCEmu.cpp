@@ -67,11 +67,11 @@ TLCDCEmu::~TLCDCEmu(){
 	uart_driver_delete(UART_NUM_2);
 }
 
-void TLCDCEmu::init(const char *btName){
+void TLCDCEmu::init(int spdif_pin, int cdc_tx_pin, int cdc_rx_pin, const char *btName){
 	ESP_LOGI(LOG_TAG,"INIT");
 	CDC_RX_Ptr = 0;
 	ESP_ERROR_CHECK(uart_param_config(UART_NUM_2, &uart_config));
-	ESP_ERROR_CHECK(uart_set_pin(UART_NUM_2,15,16,13,14)); //TX RX
+	ESP_ERROR_CHECK(uart_set_pin(UART_NUM_2,cdc_tx_pin,cdc_rx_pin,UART_PIN_NO_CHANGE,UART_PIN_NO_CHANGE));
 	ESP_ERROR_CHECK(uart_driver_install(UART_NUM_2,BUFF_SIZE,BUFF_SIZE,10,&uart_queue,0));
 	xTaskCreate(uart_event_task, "uart_event_task", 2048, NULL, 12, NULL);
 
@@ -79,7 +79,7 @@ void TLCDCEmu::init(const char *btName){
     btSink.start(btName, true);
 
     auto cfg = spdif.defaultConfig();
-    cfg.pin_data = 22; //TODO pin setting
+    cfg.pin_data = spdif_pin;
     cfg.sample_rate = btSink.sample_rate();
     cfg.channels = 2;
     cfg.bits_per_sample = 16;
