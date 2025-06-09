@@ -28,12 +28,14 @@
 
 #include "AudioConfigLocal.h"
 #include "AudioTools.h"
+#include "AudioTools/AudioLibs/SPDIFOutput.h"
 #include "BluetoothA2DPSink.h"
 
 #define LOG_TAG "TLCDCEmu"
 #define BUFF_SIZE 256
 
 //timer defs
+#define TIMER_BASE_CLK        APB_CLK_FREQ
 #define TIMER_DIVIDER         16
 #define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)
 #define TIMER_INTERVAL0_SEC   (1)

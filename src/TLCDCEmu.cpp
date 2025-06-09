@@ -420,8 +420,8 @@ static void IRAM_ATTR timer_group0_isr(void *para){
 	int timer_idx = (int) para;
 
     uint32_t intr_status = TIMERG0.int_st_timers.val;
-    TIMERG0.hw_timer[timer_idx].update = 1;
-    uint64_t timer_counter_value = ((uint64_t) TIMERG0.hw_timer[timer_idx].cnt_high) << 32 | TIMERG0.hw_timer[timer_idx].cnt_low;
+    TIMERG0.hw_timer[timer_idx].update.val = 1;
+    uint64_t timer_counter_value = ((uint64_t) TIMERG0.hw_timer[timer_idx].hi.val) << 32 | TIMERG0.hw_timer[timer_idx].lo.val;
 
     timer_event_t evt;
     evt.timer_group = 0;
@@ -430,21 +430,21 @@ static void IRAM_ATTR timer_group0_isr(void *para){
 
     if ((intr_status & BIT(timer_idx)) && timer_idx == TIMER_0) {
         evt.type = TEST_WITHOUT_RELOAD;
-        TIMERG0.int_clr_timers.t0 = 1;
+        TIMERG0.int_clr_timers.t0_int_clr = 1;
 		timer_counter_value += (uint64_t) (TIMER_INTERVAL0_SEC * TIMER_SCALE);
-        TIMERG0.hw_timer[timer_idx].alarm_high = (uint32_t) (timer_counter_value >> 32);
-        TIMERG0.hw_timer[timer_idx].alarm_low = (uint32_t) timer_counter_value;
+        TIMERG0.hw_timer[timer_idx].alarmhi.val = (uint32_t) (timer_counter_value >> 32);
+        TIMERG0.hw_timer[timer_idx].alarmlo.val = (uint32_t) timer_counter_value;
     }
 	else if ((intr_status & BIT(timer_idx)) && timer_idx == TIMER_1){
         evt.type = TEST_WITH_RELOAD;
-        TIMERG0.int_clr_timers.t1 = 1;
+        TIMERG0.int_clr_timers.t1_int_clr = 1;
 	}
 	else{
 		evt.type = -1;
 		ESP_LOGD(LOG_TAG,"Not supported event type");
     }
 
-    TIMERG0.hw_timer[timer_idx].config.alarm_en = TIMER_ALARM_EN;
+    TIMERG0.hw_timer[timer_idx].config.tx_alarm_en = TIMER_ALARM_EN;
     xQueueSendFromISR(timer_queue, &evt, NULL);
 }
 
@@ -455,7 +455,8 @@ void TLCDCEmu::tg0_timer_init(int timer_idx, bool auto_reload, double timer_inte
 	timer_config.counter_en = TIMER_PAUSE;
 	timer_config.alarm_en = TIMER_ALARM_EN;
 	timer_config.intr_type = TIMER_INTR_LEVEL;
-	timer_config.auto_reload = auto_reload;
+	timer_config.auto_reload = (timer_autoreload_t)auto_reload;
+    timer_config.clk_src = TIMER_SRC_CLK_DEFAULT;
     timer_init(TIMER_GROUP_0, (timer_idx_t)timer_idx, &timer_config);
 
     timer_set_counter_value(TIMER_GROUP_0, (timer_idx_t)timer_idx, 0x00000000ULL);
