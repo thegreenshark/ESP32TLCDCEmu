@@ -67,7 +67,7 @@ TLCDCEmu::~TLCDCEmu(){
 	uart_driver_delete(UART_NUM_2);
 }
 
-void TLCDCEmu::init(char *btName){
+void TLCDCEmu::init(const char *btName){
 	ESP_LOGI(LOG_TAG,"INIT");
 	CDC_RX_Ptr = 0;
 	ESP_ERROR_CHECK(uart_param_config(UART_NUM_2, &uart_config));

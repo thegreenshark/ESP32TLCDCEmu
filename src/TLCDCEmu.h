@@ -80,7 +80,7 @@ class TLCDCEmu
 	public:
 		TLCDCEmu();
 		~TLCDCEmu();
-		void init(char * btName = "Tuner List CDC Emulator");
+		void init(const char * btName = "Tuner List CDC Emulator");
 		void talk();
 
 	private:
