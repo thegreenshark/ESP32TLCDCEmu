@@ -110,7 +110,7 @@ void TLCDCEmu::talk(){
 				con4 = CDC_SendPacket((uint8_t*)CDC_Payload_BootSequence_4, 5, 1);
 				break;
 			}
-			
+
 			if(con1 && con2 && con3 && con4){
 				ESP_LOGI(LOG_TAG,"WAIT_HU_VERSION");
 				CDC_CurrentState = WAIT_HU_VERSION;
@@ -189,7 +189,7 @@ void TLCDCEmu::talk(){
 			timer_start(TIMER_GROUP_0, (timer_idx_t)0);
 			break;
 	}
-	
+
 }
 
 uint8_t TLCDCEmu::CDC_SendPacket(uint8_t *data, uint8_t length, uint8_t retries){
@@ -464,14 +464,14 @@ void TLCDCEmu::timer_evt_task(void *arg){
 			case 0:
 				pTLCDCEmu->fakePlay();
 				break;
-			
+
 			case 1:
 				timer_pause(TIMER_GROUP_0, (timer_idx_t)evt.timer_idx);
 				timer_set_counter_value(TIMER_GROUP_0, (timer_idx_t)evt.timer_idx, 0x00000000ULL);
 				CDC_Wait = TIMEOUT;
 				ESP_LOGD(LOG_TAG,"TIMEOUT");
 				break;
-			
+
 			default:
 				break;
 		}

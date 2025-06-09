@@ -92,7 +92,7 @@ class TLCDCEmu
 		void fakePlay();
 		static void uart_event_task(void *pvParameters);
 		uint8_t con1, con2, con3, con4;
-		
+
 		uart_config_t uart_config;
 		xTaskHandle uartHandle;
 
