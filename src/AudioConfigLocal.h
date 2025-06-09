@@ -1,0 +1,7 @@
+#ifndef _AUDIOCONFIGLOCAL_H
+#define _AUDIOCONFIGLOCAL_H
+
+#define I2S_BUFFER_COUNT 30
+#define I2S_BUFFER_SIZE 384
+
+#endif

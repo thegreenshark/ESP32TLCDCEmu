@@ -45,6 +45,12 @@ int timeouts = 0;
 TLCDCEmu* pTLCDCEmu;
 
 BluetoothA2DPSink btSink;
+SPDIFStream spdif;
+
+// Write data to SPDIF in callback
+void bt_stream_callback(const uint8_t *data, uint32_t length) {
+    spdif.write(data, length);
+}
 
 TLCDCEmu::TLCDCEmu(){
 	pTLCDCEmu = this;
@@ -69,9 +75,15 @@ void TLCDCEmu::init(char *btName){
 	ESP_ERROR_CHECK(uart_driver_install(UART_NUM_2,BUFF_SIZE,BUFF_SIZE,10,&uart_queue,0));
 	xTaskCreate(uart_event_task, "uart_event_task", 2048, NULL, 12, NULL);
 
-	SPDIFOut *out;
-	out = new SPDIFOut();
-	btSink.start(btName,out);
+    btSink.set_stream_reader(bt_stream_callback, false);
+    btSink.start(btName, true);
+
+    auto cfg = spdif.defaultConfig();
+    cfg.pin_data = 22; //TODO pin setting
+    cfg.sample_rate = btSink.sample_rate();
+    cfg.channels = 2;
+    cfg.bits_per_sample = 16;
+    spdif.begin(cfg);
 
 	//Timer
 	timer_queue = xQueueCreate(10, sizeof(timer_event_t));
@@ -133,7 +145,7 @@ void TLCDCEmu::talk(){
 		case RECEIVED_PLAY:
 			ESP_LOGI(LOG_TAG,"RECEIVED_PLAY");
 			timer_pause(TIMER_GROUP_0, (timer_idx_t)0);
-			btSink.sendCommand(PLAY);
+			btSink.play();
 			CDC_SendPacket((uint8_t*)CDC_Payload_ConfirmPlay, 2, 1);
 			CDC_CurrentState = OPERATE_PREPARE_PLAY;
 			break;
@@ -141,7 +153,7 @@ void TLCDCEmu::talk(){
 		case RECEIVED_PAUSE:
 			ESP_LOGI(LOG_TAG,"RECEIVED_PAUSE");
 			timer_pause(TIMER_GROUP_0, (timer_idx_t)0);
-			btSink.sendCommand(PAUSE);
+			btSink.pause();
 			CDC_SendPacket((uint8_t*)CDC_Payload_ConfirmPause, 2, 1);
 			CDC_CurrentState = OPERATE_PAUSED;
 			break;
@@ -156,7 +168,7 @@ void TLCDCEmu::talk(){
 		case RECEIVED_NEXT:
 			ESP_LOGI(LOG_TAG,"RECEIVED_NEXT");
 			timer_pause(TIMER_GROUP_0, (timer_idx_t)0);
-			btSink.sendCommand(NEXT);
+			btSink.next();
 			CDC_CurrentState = OPERATE_PREPARE_PLAY;
 			CDC_ConfirmSongChange();
 			break;
@@ -164,7 +176,7 @@ void TLCDCEmu::talk(){
 		case RECEIVED_PREV:
 			ESP_LOGI(LOG_TAG,"RECEIVED_PREV");
 			timer_pause(TIMER_GROUP_0, (timer_idx_t)0);
-			btSink.sendCommand(PREV);
+			btSink.previous();
 			CDC_CurrentState = OPERATE_PREPARE_PLAY;
 			CDC_ConfirmSongChange();
 			break;
@@ -172,7 +184,7 @@ void TLCDCEmu::talk(){
 		case RECEIVED_STANDBY:
 			ESP_LOGI(LOG_TAG,"RECEIVED_STANDBY");
 			timer_pause(TIMER_GROUP_0, (timer_idx_t)0);
-			btSink.sendCommand(PAUSE);
+			btSink.pause();
 			CDC_SendPacket((uint8_t*)CDC_Payload_ConfirmStandby, 2, 1);
 			CDC_CurrentState = OPERATE_STANDBY;
 			break;

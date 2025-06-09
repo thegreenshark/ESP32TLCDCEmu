@@ -6,11 +6,6 @@
 #ifndef _TLCDCEMU_H
 #define _TLCDCEMU_H
 
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -31,6 +26,8 @@ extern "C" {
 #include "esp32-hal-log.h"
 #include "esp32-hal-uart.h"
 
+#include "AudioConfigLocal.h"
+#include "AudioTools.h"
 #include "BluetoothA2DPSink.h"
 
 #define LOG_TAG "TLCDCEmu"
@@ -101,9 +98,4 @@ class TLCDCEmu
 		static void timer_evt_task(void *arg);
 };
 
-#ifdef __cplusplus
-}
 #endif
-
-#endif
-
