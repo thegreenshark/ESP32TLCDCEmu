@@ -47,8 +47,10 @@ TLCDCEmu* pTLCDCEmu;
 BluetoothA2DPSink btSink;
 SPDIFStream spdif;
 
-static gptimer_handle_t fakeplay_timer = NULL;
-static gptimer_handle_t cdc_wait_timer = NULL;
+static bool timer_alarm_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx);
+
+static GPTimerWrap fakeplay_timer(TIMERS_RESOLUTION_HZ, FAKEPLAY_TIMER_INTERVAL_SEC, true, timer_alarm_callback);
+static GPTimerWrap cdc_wait_timer(TIMERS_RESOLUTION_HZ, CDC_WAIT_TIMER_INTERVAL_SEC, false, timer_alarm_callback);
 
 // Write data to SPDIF in callback
 void bt_stream_callback(const uint8_t *data, uint32_t length) {
@@ -68,14 +70,6 @@ TLCDCEmu::TLCDCEmu(){
 
 TLCDCEmu::~TLCDCEmu(){
 	uart_driver_delete(UART_NUM_2);
-
-    gptimer_stop(fakeplay_timer);
-    gptimer_disable(fakeplay_timer);
-    gptimer_del_timer(fakeplay_timer);
-
-    gptimer_stop(cdc_wait_timer);
-    gptimer_disable(cdc_wait_timer);
-    gptimer_del_timer(cdc_wait_timer);
 }
 
 void TLCDCEmu::init(int spdif_pin, int cdc_tx_pin, int cdc_rx_pin, const char *btName){
@@ -98,8 +92,6 @@ void TLCDCEmu::init(int spdif_pin, int cdc_tx_pin, int cdc_rx_pin, const char *b
 
 	//Timer
 	timer_queue = xQueueCreate(10, sizeof(timer_event_t));
-    fakeplay_timer = init_new_timer(true, FAKEPLAY_TIMER_INTERVAL_SEC);
-    cdc_wait_timer = init_new_timer(false, CDC_WAIT_TIMER_INTERVAL_SEC);
     xTaskCreate(timer_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
 }
 
@@ -155,7 +147,7 @@ void TLCDCEmu::talk(){
 
 		case RECEIVED_PLAY:
 			ESP_LOGI(LOG_TAG,"RECEIVED_PLAY");
-			gptimer_stop(fakeplay_timer);
+			fakeplay_timer.stop();
 			btSink.play();
 			CDC_SendPacket((uint8_t*)CDC_Payload_ConfirmPlay, 2, 1);
 			CDC_CurrentState = OPERATE_PREPARE_PLAY;
@@ -163,7 +155,7 @@ void TLCDCEmu::talk(){
 
 		case RECEIVED_PAUSE:
 			ESP_LOGI(LOG_TAG,"RECEIVED_PAUSE");
-			gptimer_stop(fakeplay_timer);
+			fakeplay_timer.stop();
 			btSink.pause();
 			CDC_SendPacket((uint8_t*)CDC_Payload_ConfirmPause, 2, 1);
 			CDC_CurrentState = OPERATE_PAUSED;
@@ -171,14 +163,14 @@ void TLCDCEmu::talk(){
 
 		case RECEIVED_CD_CHANGE:
 			ESP_LOGI(LOG_TAG,"RECEIVED_CD_CHANGE");
-			gptimer_stop(fakeplay_timer);
+			fakeplay_timer.stop();
 			CDC_CurrentState = OPERATE_PREPARE_PLAY;
 			CDC_ConfirmSongChange();
 			break;
 
 		case RECEIVED_NEXT:
 			ESP_LOGI(LOG_TAG,"RECEIVED_NEXT");
-			gptimer_stop(fakeplay_timer);
+			fakeplay_timer.stop();
 			btSink.next();
 			CDC_CurrentState = OPERATE_PREPARE_PLAY;
 			CDC_ConfirmSongChange();
@@ -186,7 +178,7 @@ void TLCDCEmu::talk(){
 
 		case RECEIVED_PREV:
 			ESP_LOGI(LOG_TAG,"RECEIVED_PREV");
-			gptimer_stop(fakeplay_timer);
+			fakeplay_timer.stop();
 			btSink.previous();
 			CDC_CurrentState = OPERATE_PREPARE_PLAY;
 			CDC_ConfirmSongChange();
@@ -194,7 +186,7 @@ void TLCDCEmu::talk(){
 
 		case RECEIVED_STANDBY:
 			ESP_LOGI(LOG_TAG,"RECEIVED_STANDBY");
-			gptimer_stop(fakeplay_timer);
+			fakeplay_timer.stop();
 			btSink.pause();
 			CDC_SendPacket((uint8_t*)CDC_Payload_ConfirmStandby, 2, 1);
 			CDC_CurrentState = OPERATE_STANDBY;
@@ -202,14 +194,14 @@ void TLCDCEmu::talk(){
 
 		case OPERATE_PREPARE_PLAY:
 			ESP_LOGI(LOG_TAG,"OPERATE_PREPARE_PLAY");
-			gptimer_start(fakeplay_timer);
+			fakeplay_timer.start();
 			CDC_CurrentState = OPERATE_PLAYING;
 			break;
 
 		case OPERATE_PAUSED:
 		case OPERATE_STANDBY:
 		case OPERATE_PLAYING:
-			gptimer_start(fakeplay_timer);
+			fakeplay_timer.start();
 			break;
 	}
 
@@ -233,10 +225,10 @@ uint8_t TLCDCEmu::CDC_SendPacket(uint8_t *data, uint8_t length, uint8_t retries)
 
 			CDC_Wait = WAITING;
 			uart_wait_tx_done(UART_NUM_2, 100);
-            gptimer_set_raw_count(cdc_wait_timer, 0);
-			gptimer_start(cdc_wait_timer);
+            cdc_wait_timer.setCounter(0);
+			cdc_wait_timer.start();
 			while(CDC_Wait == WAITING);
-			gptimer_stop(cdc_wait_timer);
+			cdc_wait_timer.stop();
 
 			if(CDC_Wait == CONFIRMED){
 				CDC_SendSequence++;
@@ -438,51 +430,17 @@ static bool timer_alarm_callback(gptimer_handle_t timer, const gptimer_alarm_eve
     return shouldYield;
 }
 
-gptimer_handle_t TLCDCEmu::init_new_timer(bool auto_reload, double timer_interval_sec)
-{
-    gptimer_handle_t timer = NULL;
-    gptimer_config_t timer_config =
-    {
-        .clk_src = GPTIMER_CLK_SRC_DEFAULT,
-        .direction = GPTIMER_COUNT_UP,
-        .resolution_hz = TIMERS_RESOLUTION_HZ
-    };
-    ESP_ERROR_CHECK(gptimer_new_timer(&timer_config, &timer));
-
-    gptimer_alarm_config_t alarm_config =
-    {
-        .alarm_count = uint64_t(timer_interval_sec * TIMERS_RESOLUTION_HZ),
-        .reload_count = 0,
-        .flags =
-        {
-            auto_reload
-        }
-    };
-    ESP_ERROR_CHECK(gptimer_set_alarm_action(timer, &alarm_config));
-
-    gptimer_event_callbacks_t event_callbacks =
-    {
-        .on_alarm = timer_alarm_callback
-    };
-    ESP_ERROR_CHECK(gptimer_register_event_callbacks(timer, &event_callbacks, NULL));
-
-    ESP_ERROR_CHECK(gptimer_set_raw_count(timer, 0));
-    ESP_ERROR_CHECK(gptimer_enable(timer));
-
-    return timer;
-}
-
 void TLCDCEmu::timer_evt_task(void *arg){
 	while (1) {
         timer_event_t evt;
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
 
-        if (evt.timer == fakeplay_timer)
+        if (evt.timer == fakeplay_timer.getTimer())
         {
             pTLCDCEmu->fakePlay();
             ESP_LOGI(LOG_TAG,"FAKEPLAY"); //TODO ESP_LOGD
         }
-        else if (evt.timer == cdc_wait_timer)
+        else if (evt.timer == cdc_wait_timer.getTimer())
         {
             CDC_Wait = TIMEOUT;
             ESP_LOGI(LOG_TAG,"TIMEOUT"); //TODO ESP_LOGD

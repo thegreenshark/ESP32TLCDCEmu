@@ -28,6 +28,7 @@
 #include "AudioTools.h"
 #include "AudioTools/AudioLibs/SPDIFOutput.h"
 #include "BluetoothA2DPSink.h"
+#include "GPTimerWrap.h"
 
 #define LOG_TAG "TLCDCEmu"
 #define BUFF_SIZE 256
@@ -87,7 +88,6 @@ class TLCDCEmu
 		xTaskHandle uartHandle;
 
 		//timer
-        static gptimer_handle_t init_new_timer(bool auto_reload, double timer_interval_sec);
 		static void timer_evt_task(void *arg);
 };
 
