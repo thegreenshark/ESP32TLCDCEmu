@@ -75,3 +75,10 @@ void GPTimerWrap::setCounter(uint64_t value)
 {
     ESP_ERROR_CHECK(gptimer_set_raw_count(timer, value));
 }
+
+uint64_t GPTimerWrap::getCounter()
+{
+    uint64_t value;
+    ESP_ERROR_CHECK(gptimer_get_raw_count(timer, &value));
+    return value;
+}

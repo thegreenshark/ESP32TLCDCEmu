@@ -19,6 +19,7 @@ public:
     void start();
     void stop();
     void setCounter(uint64_t value);
+    uint64_t getCounter();
 };
 
 #endif
