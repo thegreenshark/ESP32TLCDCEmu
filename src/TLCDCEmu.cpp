@@ -47,6 +47,11 @@ TLCDCEmu* pTLCDCEmu;
 BluetoothA2DPSink btSink;
 SPDIFStream spdif;
 
+static bool timer_alarm_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx);
+
+static GPTimerWrap fakeplay_timer(TIMERS_RESOLUTION_HZ, FAKEPLAY_TIMER_INTERVAL_SEC, true, timer_alarm_callback);
+static GPTimerWrap cdc_wait_timer(TIMERS_RESOLUTION_HZ, CDC_WAIT_TIMER_INTERVAL_SEC, false, timer_alarm_callback);
+
 // Write data to SPDIF in callback
 void bt_stream_callback(const uint8_t *data, uint32_t length) {
     spdif.write(data, length);
@@ -87,8 +92,6 @@ void TLCDCEmu::init(int spdif_pin, int cdc_tx_pin, int cdc_rx_pin, const char *b
 
 	//Timer
 	timer_queue = xQueueCreate(10, sizeof(timer_event_t));
-    tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
-	tg0_timer_init(TIMER_1, TEST_WITH_RELOAD, TIMER_INTERVAL1_SEC);
     xTaskCreate(timer_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
 }
 
@@ -144,7 +147,7 @@ void TLCDCEmu::talk(){
 
 		case RECEIVED_PLAY:
 			ESP_LOGI(LOG_TAG,"RECEIVED_PLAY");
-			timer_pause(TIMER_GROUP_0, (timer_idx_t)0);
+			fakeplay_timer.stop();
 			btSink.play();
 			CDC_SendPacket((uint8_t*)CDC_Payload_ConfirmPlay, 2, 1);
 			CDC_CurrentState = OPERATE_PREPARE_PLAY;
@@ -152,7 +155,7 @@ void TLCDCEmu::talk(){
 
 		case RECEIVED_PAUSE:
 			ESP_LOGI(LOG_TAG,"RECEIVED_PAUSE");
-			timer_pause(TIMER_GROUP_0, (timer_idx_t)0);
+			fakeplay_timer.stop();
 			btSink.pause();
 			CDC_SendPacket((uint8_t*)CDC_Payload_ConfirmPause, 2, 1);
 			CDC_CurrentState = OPERATE_PAUSED;
@@ -160,14 +163,14 @@ void TLCDCEmu::talk(){
 
 		case RECEIVED_CD_CHANGE:
 			ESP_LOGI(LOG_TAG,"RECEIVED_CD_CHANGE");
-			timer_pause(TIMER_GROUP_0, (timer_idx_t)0);
+			fakeplay_timer.stop();
 			CDC_CurrentState = OPERATE_PREPARE_PLAY;
 			CDC_ConfirmSongChange();
 			break;
 
 		case RECEIVED_NEXT:
 			ESP_LOGI(LOG_TAG,"RECEIVED_NEXT");
-			timer_pause(TIMER_GROUP_0, (timer_idx_t)0);
+			fakeplay_timer.stop();
 			btSink.next();
 			CDC_CurrentState = OPERATE_PREPARE_PLAY;
 			CDC_ConfirmSongChange();
@@ -175,7 +178,7 @@ void TLCDCEmu::talk(){
 
 		case RECEIVED_PREV:
 			ESP_LOGI(LOG_TAG,"RECEIVED_PREV");
-			timer_pause(TIMER_GROUP_0, (timer_idx_t)0);
+			fakeplay_timer.stop();
 			btSink.previous();
 			CDC_CurrentState = OPERATE_PREPARE_PLAY;
 			CDC_ConfirmSongChange();
@@ -183,7 +186,7 @@ void TLCDCEmu::talk(){
 
 		case RECEIVED_STANDBY:
 			ESP_LOGI(LOG_TAG,"RECEIVED_STANDBY");
-			timer_pause(TIMER_GROUP_0, (timer_idx_t)0);
+			fakeplay_timer.stop();
 			btSink.pause();
 			CDC_SendPacket((uint8_t*)CDC_Payload_ConfirmStandby, 2, 1);
 			CDC_CurrentState = OPERATE_STANDBY;
@@ -191,14 +194,14 @@ void TLCDCEmu::talk(){
 
 		case OPERATE_PREPARE_PLAY:
 			ESP_LOGI(LOG_TAG,"OPERATE_PREPARE_PLAY");
-			timer_start(TIMER_GROUP_0, (timer_idx_t)0);
+			fakeplay_timer.start();
 			CDC_CurrentState = OPERATE_PLAYING;
 			break;
 
 		case OPERATE_PAUSED:
 		case OPERATE_STANDBY:
 		case OPERATE_PLAYING:
-			timer_start(TIMER_GROUP_0, (timer_idx_t)0);
+			fakeplay_timer.start();
 			break;
 	}
 
@@ -222,10 +225,10 @@ uint8_t TLCDCEmu::CDC_SendPacket(uint8_t *data, uint8_t length, uint8_t retries)
 
 			CDC_Wait = WAITING;
 			uart_wait_tx_done(UART_NUM_2, 100);
-			timer_set_counter_value(TIMER_GROUP_0, (timer_idx_t)1, 0x00000000ULL);
-			timer_start(TIMER_GROUP_0, (timer_idx_t)1);
+            cdc_wait_timer.setCounter(0);
+			cdc_wait_timer.start();
 			while(CDC_Wait == WAITING);
-			timer_pause(TIMER_GROUP_0, (timer_idx_t)1);
+			cdc_wait_timer.stop();
 
 			if(CDC_Wait == CONFIRMED){
 				CDC_SendSequence++;
@@ -415,78 +418,36 @@ void TLCDCEmu::CDC_ConfirmSongChange(){
 	CDC_PlaySequence = 0;
 }
 
-//TIMER
-static void IRAM_ATTR timer_group0_isr(void *para){
-	int timer_idx = (int) para;
+bool timer_alarm_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx)
+{
+    timer_event_t evt =
+    {
+        .timer_wrap_ptr = (GPTimerWrap *)user_ctx
+    };
+    BaseType_t shouldYield = pdFALSE;
+    xQueueSendFromISR(timer_queue, &evt, &shouldYield);
 
-    uint32_t intr_status = TIMERG0.int_st_timers.val;
-    TIMERG0.hw_timer[timer_idx].update.val = 1;
-    uint64_t timer_counter_value = ((uint64_t) TIMERG0.hw_timer[timer_idx].hi.val) << 32 | TIMERG0.hw_timer[timer_idx].lo.val;
-
-    timer_event_t evt;
-    evt.timer_group = 0;
-    evt.timer_idx = timer_idx;
-    evt.timer_counter_value = timer_counter_value;
-
-    if ((intr_status & BIT(timer_idx)) && timer_idx == TIMER_0) {
-        evt.type = TEST_WITHOUT_RELOAD;
-        TIMERG0.int_clr_timers.t0_int_clr = 1;
-		timer_counter_value += (uint64_t) (TIMER_INTERVAL0_SEC * TIMER_SCALE);
-        TIMERG0.hw_timer[timer_idx].alarmhi.val = (uint32_t) (timer_counter_value >> 32);
-        TIMERG0.hw_timer[timer_idx].alarmlo.val = (uint32_t) timer_counter_value;
-    }
-	else if ((intr_status & BIT(timer_idx)) && timer_idx == TIMER_1){
-        evt.type = TEST_WITH_RELOAD;
-        TIMERG0.int_clr_timers.t1_int_clr = 1;
-	}
-	else{
-		evt.type = -1;
-		ESP_LOGD(LOG_TAG,"Not supported event type");
-    }
-
-    TIMERG0.hw_timer[timer_idx].config.tx_alarm_en = TIMER_ALARM_EN;
-    xQueueSendFromISR(timer_queue, &evt, NULL);
-}
-
-void TLCDCEmu::tg0_timer_init(int timer_idx, bool auto_reload, double timer_interval_sec){
-	timer_config_t timer_config;
-	timer_config.divider = TIMER_DIVIDER;
-	timer_config.counter_dir = TIMER_COUNT_UP;
-	timer_config.counter_en = TIMER_PAUSE;
-	timer_config.alarm_en = TIMER_ALARM_EN;
-	timer_config.intr_type = TIMER_INTR_LEVEL;
-	timer_config.auto_reload = (timer_autoreload_t)auto_reload;
-    timer_config.clk_src = TIMER_SRC_CLK_DEFAULT;
-    timer_init(TIMER_GROUP_0, (timer_idx_t)timer_idx, &timer_config);
-
-    timer_set_counter_value(TIMER_GROUP_0, (timer_idx_t)timer_idx, 0x00000000ULL);
-
-    timer_set_alarm_value(TIMER_GROUP_0, (timer_idx_t)timer_idx, timer_interval_sec * TIMER_SCALE);
-    timer_enable_intr(TIMER_GROUP_0, (timer_idx_t)timer_idx);
-    timer_isr_register(TIMER_GROUP_0, (timer_idx_t)timer_idx, timer_group0_isr, (void *) timer_idx, ESP_INTR_FLAG_IRAM, NULL);
+    return shouldYield;
 }
 
 void TLCDCEmu::timer_evt_task(void *arg){
 	while (1) {
         timer_event_t evt;
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
-        uint64_t task_counter_value;
-        timer_get_counter_value((timer_group_t)evt.timer_group, (timer_idx_t)evt.timer_idx, &task_counter_value);
-		ESP_LOGD(LOG_TAG,"TIMER %d PING %.8f s",evt.timer_idx, (double)task_counter_value/TIMER_SCALE);
-		switch(evt.timer_idx){
-			case 0:
-				pTLCDCEmu->fakePlay();
-				break;
 
-			case 1:
-				timer_pause(TIMER_GROUP_0, (timer_idx_t)evt.timer_idx);
-				timer_set_counter_value(TIMER_GROUP_0, (timer_idx_t)evt.timer_idx, 0x00000000ULL);
-				CDC_Wait = TIMEOUT;
-				ESP_LOGD(LOG_TAG,"TIMEOUT");
-				break;
-
-			default:
-				break;
-		}
+        if (evt.timer_wrap_ptr == &fakeplay_timer)
+        {
+            pTLCDCEmu->fakePlay();
+            ESP_LOGI(LOG_TAG,"FAKEPLAY"); //TODO ESP_LOGD
+        }
+        else if (evt.timer_wrap_ptr == &cdc_wait_timer)
+        {
+            CDC_Wait = TIMEOUT;
+            ESP_LOGI(LOG_TAG,"TIMEOUT"); //TODO ESP_LOGD
+        }
+        else
+        {
+            ESP_LOGE(LOG_TAG,"Unknown timer handle");
+        }
     }
 }

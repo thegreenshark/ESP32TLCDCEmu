@@ -19,9 +19,7 @@
 #include "esp_avrc_api.h"
 #include "esp_types.h"
 #include "driver/uart.h"
-#include "driver/timer.h"
-#include "driver/periph_ctrl.h"
-#include "soc/timer_group_struct.h"
+#include "driver/gptimer.h"
 
 #include "esp32-hal-log.h"
 #include "esp32-hal-uart.h"
@@ -30,18 +28,15 @@
 #include "AudioTools.h"
 #include "AudioTools/AudioLibs/SPDIFOutput.h"
 #include "BluetoothA2DPSink.h"
+#include "GPTimerWrap.h"
 
 #define LOG_TAG "TLCDCEmu"
 #define BUFF_SIZE 256
 
 //timer defs
-#define TIMER_BASE_CLK        APB_CLK_FREQ
-#define TIMER_DIVIDER         16
-#define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)
-#define TIMER_INTERVAL0_SEC   (1)
-#define TIMER_INTERVAL1_SEC   (0.20)
-#define TEST_WITHOUT_RELOAD   0
-#define TEST_WITH_RELOAD      1
+#define TIMERS_RESOLUTION_HZ  1000000
+#define FAKEPLAY_TIMER_INTERVAL_SEC 1
+#define CDC_WAIT_TIMER_INTERVAL_SEC 0.20
 
 typedef enum{
 	WAITING,
@@ -69,10 +64,7 @@ typedef enum{
 }CDC_State;
 
 typedef struct {
-	int type;
-	int timer_group;
-	int timer_idx;
-	uint64_t timer_counter_value;
+    GPTimerWrap *timer_wrap_ptr; //timer that has triggered the event
 } timer_event_t;
 
 class TLCDCEmu
@@ -96,7 +88,6 @@ class TLCDCEmu
 		xTaskHandle uartHandle;
 
 		//timer
-		static void tg0_timer_init(int timer_idx, bool auto_reload, double timer_interval_sec);
 		static void timer_evt_task(void *arg);
 };
 
