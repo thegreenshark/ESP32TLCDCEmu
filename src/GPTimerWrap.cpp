@@ -42,10 +42,9 @@ is_running(false)
 
 GPTimerWrap::~GPTimerWrap()
 {
-    if (is_running)
-        gptimer_stop(timer);
-    gptimer_disable(timer);
-    gptimer_del_timer(timer);
+    stop();
+    ESP_ERROR_CHECK(gptimer_disable(timer));
+    ESP_ERROR_CHECK(gptimer_del_timer(timer));
 }
 
 bool GPTimerWrap::isRunning()
@@ -57,7 +56,7 @@ void GPTimerWrap::start()
 {
     if (!is_running)
     {
-        gptimer_start(timer);
+        ESP_ERROR_CHECK(gptimer_start(timer));
         is_running = true;
     }
 }
@@ -66,7 +65,7 @@ void GPTimerWrap::stop()
 {
     if (is_running)
     {
-        gptimer_stop(timer);
+        ESP_ERROR_CHECK(gptimer_stop(timer));
         is_running = false;
     }
 }
