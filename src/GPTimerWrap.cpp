@@ -33,7 +33,7 @@ is_running(false)
         {
             .on_alarm = alarm_callback
         };
-        ESP_ERROR_CHECK(gptimer_register_event_callbacks(timer, &event_callbacks, NULL));
+        ESP_ERROR_CHECK(gptimer_register_event_callbacks(timer, &event_callbacks, this));
     }
 
     setCounter(0);

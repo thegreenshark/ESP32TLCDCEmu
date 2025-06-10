@@ -64,7 +64,7 @@ typedef enum{
 }CDC_State;
 
 typedef struct {
-    gptimer_handle_t timer; //timer that has triggered the event
+    GPTimerWrap *timer_wrap_ptr; //timer that has triggered the event
 } timer_event_t;
 
 class TLCDCEmu

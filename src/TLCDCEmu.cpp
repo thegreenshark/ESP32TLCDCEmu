@@ -418,11 +418,11 @@ void TLCDCEmu::CDC_ConfirmSongChange(){
 	CDC_PlaySequence = 0;
 }
 
-static bool timer_alarm_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx)
+bool timer_alarm_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx)
 {
     timer_event_t evt =
     {
-        .timer = timer
+        .timer_wrap_ptr = (GPTimerWrap *)user_ctx
     };
     BaseType_t shouldYield = pdFALSE;
     xQueueSendFromISR(timer_queue, &evt, &shouldYield);
@@ -435,12 +435,12 @@ void TLCDCEmu::timer_evt_task(void *arg){
         timer_event_t evt;
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
 
-        if (evt.timer == fakeplay_timer.getTimer())
+        if (evt.timer_wrap_ptr == &fakeplay_timer)
         {
             pTLCDCEmu->fakePlay();
             ESP_LOGI(LOG_TAG,"FAKEPLAY"); //TODO ESP_LOGD
         }
-        else if (evt.timer == cdc_wait_timer.getTimer())
+        else if (evt.timer_wrap_ptr == &cdc_wait_timer)
         {
             CDC_Wait = TIMEOUT;
             ESP_LOGI(LOG_TAG,"TIMEOUT"); //TODO ESP_LOGD
