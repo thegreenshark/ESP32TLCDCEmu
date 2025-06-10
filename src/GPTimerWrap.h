@@ -15,7 +15,6 @@ public:
         gptimer_alarm_cb_t alarm_callback = NULL
     );
     ~GPTimerWrap();
-    gptimer_handle_t getTimer();
     bool isRunning();
     void start();
     void stop();

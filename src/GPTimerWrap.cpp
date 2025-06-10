@@ -48,11 +48,6 @@ GPTimerWrap::~GPTimerWrap()
     gptimer_del_timer(timer);
 }
 
-gptimer_handle_t GPTimerWrap::getTimer()
-{
-    return timer;
-}
-
 bool GPTimerWrap::isRunning()
 {
     return is_running;
