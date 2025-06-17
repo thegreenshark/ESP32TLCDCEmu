@@ -44,18 +44,14 @@ int timeouts = 0;
 
 TLCDCEmu* pTLCDCEmu;
 
-BluetoothA2DPSink btSink;
-SPDIFStream spdif;
+SPDIFOutput spdif;
+BluetoothA2DPSink btSink(spdif);
 
 static bool timer_alarm_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx);
 
 static GPTimerWrap fakeplay_timer(TIMERS_RESOLUTION_HZ, FAKEPLAY_TIMER_INTERVAL_SEC, true, timer_alarm_callback);
 static GPTimerWrap cdc_wait_timer(TIMERS_RESOLUTION_HZ, CDC_WAIT_TIMER_INTERVAL_SEC, false, timer_alarm_callback);
 
-// Write data to SPDIF in callback
-void bt_stream_callback(const uint8_t *data, uint32_t length) {
-    spdif.write(data, length);
-}
 
 TLCDCEmu::TLCDCEmu(){
 	pTLCDCEmu = this;
@@ -80,15 +76,14 @@ void TLCDCEmu::init(int spdif_pin, int cdc_tx_pin, int cdc_rx_pin, const char *b
 	ESP_ERROR_CHECK(uart_driver_install(UART_NUM_2,BUFF_SIZE,BUFF_SIZE,10,&uart_queue,0));
 	xTaskCreate(uart_event_task, "uart_event_task", 2048, NULL, 12, NULL);
 
-    btSink.set_stream_reader(bt_stream_callback, false);
-    btSink.start(btName, true);
-
     auto cfg = spdif.defaultConfig();
     cfg.pin_data = spdif_pin;
     cfg.sample_rate = btSink.sample_rate();
     cfg.channels = 2;
     cfg.bits_per_sample = 16;
     spdif.begin(cfg);
+
+    btSink.start(btName, true);
 
 	//Timer
 	timer_queue = xQueueCreate(10, sizeof(timer_event_t));
