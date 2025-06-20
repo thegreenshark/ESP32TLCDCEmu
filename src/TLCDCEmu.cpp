@@ -213,7 +213,7 @@ uint8_t TLCDCEmu::CDC_SendPacket(uint8_t *data, uint8_t length, uint8_t retries)
 			}
 			CDC_TX_buffer[3+length] = this->CDC_checksum((const uint8_t*)CDC_TX_buffer, length+3);
 			//for (int ii=0;ii<length+4;ii++){
-			//	ESP_LOGI(LOG_TAG,"-->%X",CDC_TX_buffer[ii]);
+			//	ESP_LOGD(LOG_TAG,"-->%X",CDC_TX_buffer[ii]);
 			//}
 			uart_write_bytes(UART_NUM_2, (const char*)CDC_TX_buffer, length+4);
 			uint8_t log_buff[length+4] = {};
@@ -286,12 +286,12 @@ void TLCDCEmu::uart_event_task(void *pvParameters){
 
 void TLCDCEmu::readHU(const uint8_t *data, uint16_t length){
 	for(int i=0;i<length;i++){
-		ESP_LOGI(LOG_TAG,"<--%X",data[i]);
+		ESP_LOGD(LOG_TAG,"<--%X",data[i]);
 		CDC_RX_buffer[CDC_RX_Ptr] = data[i];
 		CDC_RX_Ptr++;
 
 		if(CDC_RX_buffer[0] == 0xC5){ // confirmation
-			ESP_LOGI(LOG_TAG,"<-- C5");
+			ESP_LOGD(LOG_TAG,"<-- C5");
 			CDC_RX_Ptr = 0; //start transimison over
 			CDC_Wait = CONFIRMED; // release waiting for confirmation
 		}
@@ -305,10 +305,10 @@ void TLCDCEmu::readHU(const uint8_t *data, uint16_t length){
 					//ESP_LOG_BUFFER_HEX_LEVEL(LOG_TAG, (const uint8_t*)CDC_RX_buffer, CDC_RX_buffer[2] + 4, ESP_LOG_INFO);
 					uart_write_bytes(UART_NUM_2, (const char*)ACK, 1);
 					uart_wait_tx_done(UART_NUM_2, 100);
-					ESP_LOGI(LOG_TAG,"--> C5");
+					ESP_LOGD(LOG_TAG,"--> C5");
 					if(CDC_RX_buffer[2] == 7 && CDC_RX_buffer[3] == 0x31){
 						CDC_CurrentState = CONFIRM_HU_VERSION;
-						ESP_LOGI(LOG_TAG,"RECEIVED CONFIRM_HU_VERSION");
+						ESP_LOGD(LOG_TAG,"RECEIVED CONFIRM_HU_VERSION");
 					}
 
 					if(CDC_RX_buffer[2] == 1){
@@ -433,12 +433,11 @@ void TLCDCEmu::timer_evt_task(void *arg){
         if (evt.timer_wrap_ptr == &fakeplay_timer)
         {
             pTLCDCEmu->fakePlay();
-            ESP_LOGI(LOG_TAG,"FAKEPLAY"); //TODO ESP_LOGD
         }
         else if (evt.timer_wrap_ptr == &cdc_wait_timer)
         {
             CDC_Wait = TIMEOUT;
-            ESP_LOGI(LOG_TAG,"TIMEOUT"); //TODO ESP_LOGD
+            ESP_LOGD(LOG_TAG,"CDC_Wait Timeout");
         }
         else
         {
