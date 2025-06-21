@@ -30,6 +30,8 @@
 #include "BluetoothA2DPSink.h"
 #include "GPTimerWrap.h"
 
+// #define HEAP_DEBUGGING
+
 #define LOG_TAG "TLCDCEmu"
 #define BUFF_SIZE 256
 

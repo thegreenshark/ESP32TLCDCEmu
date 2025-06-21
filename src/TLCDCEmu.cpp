@@ -55,6 +55,10 @@ static bool timer_alarm_callback(gptimer_handle_t timer, const gptimer_alarm_eve
 static GPTimerWrap fakeplay_timer(TIMERS_RESOLUTION_HZ, FAKEPLAY_TIMER_INTERVAL_SEC, true, timer_alarm_callback);
 static GPTimerWrap cdc_wait_timer(TIMERS_RESOLUTION_HZ, CDC_WAIT_TIMER_INTERVAL_SEC, false, timer_alarm_callback);
 
+#ifdef HEAP_DEBUGGING
+static void reportHeapUsage();
+#endif
+
 
 TLCDCEmu::TLCDCEmu(){
 	pTLCDCEmu = this;
@@ -94,6 +98,18 @@ void TLCDCEmu::init(int spdif_pin, int cdc_tx_pin, int cdc_rx_pin, const char *b
 }
 
 void TLCDCEmu::talk(){
+#ifdef HEAP_DEBUGGING
+    TickType_t report_interval_ms = 3000;
+    static TickType_t last_report_time = xTaskGetTickCount();
+
+    TickType_t current_time = xTaskGetTickCount();
+    if (current_time - last_report_time > pdMS_TO_TICKS(report_interval_ms))
+    {
+        reportHeapUsage();
+        last_report_time = current_time;
+    }
+#endif
+
 	switch(CDC_CurrentState){
 		case WAIT_BOOT:
 			ESP_LOGD(LOG_TAG,"WAIT_BOOT");
@@ -448,3 +464,24 @@ void TLCDCEmu::timer_evt_task(void *arg){
         }
     }
 }
+
+#ifdef HEAP_DEBUGGING
+void reportHeapUsage()
+{
+    uint32_t caps = MALLOC_CAP_8BIT;
+    multi_heap_info_t heap_info;
+
+    heap_caps_get_info(&heap_info, caps);
+
+    ESP_LOGI(LOG_TAG, "--------------------------------------------------");
+    ESP_LOGI(LOG_TAG, "Current free heap: %u bytes", heap_info.total_free_bytes);
+    ESP_LOGI(LOG_TAG, "Current largest free heap block: %u bytes", heap_info.largest_free_block);
+    ESP_LOGI(LOG_TAG, "Minimal free heap ever: %u bytes", heap_info.minimum_free_bytes);
+    //In esp32 freertos functions return bytes (not words like in vanilla freertos)
+    ESP_LOGI(LOG_TAG, "Minimal free stack ever for this task:  %u bytes", uxTaskGetStackHighWaterMark(NULL)); //"this task" is presumed to be the one in which void loop() runs
+    if (uart_task != NULL)
+        ESP_LOGI(LOG_TAG, "Minimal free stack ever for UART task:  %u bytes", uxTaskGetStackHighWaterMark(uart_task));
+    if (timer_task != NULL)
+        ESP_LOGI(LOG_TAG, "Minimal free stack ever for timer task: %u bytes", uxTaskGetStackHighWaterMark(timer_task));
+}
+#endif
