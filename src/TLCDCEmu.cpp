@@ -40,6 +40,9 @@ static volatile uint8_t CDC_PlaySequence;
 static QueueHandle_t uart_queue;
 static xQueueHandle timer_queue;
 
+static TaskHandle_t uart_task = NULL;
+static TaskHandle_t timer_task = NULL;
+
 int timeouts = 0;
 
 TLCDCEmu* pTLCDCEmu;
@@ -74,7 +77,7 @@ void TLCDCEmu::init(int spdif_pin, int cdc_tx_pin, int cdc_rx_pin, const char *b
 	ESP_ERROR_CHECK(uart_param_config(UART_NUM_2, &uart_config));
 	ESP_ERROR_CHECK(uart_set_pin(UART_NUM_2,cdc_tx_pin,cdc_rx_pin,UART_PIN_NO_CHANGE,UART_PIN_NO_CHANGE));
 	ESP_ERROR_CHECK(uart_driver_install(UART_NUM_2,BUFF_SIZE,BUFF_SIZE,10,&uart_queue,0));
-	xTaskCreate(uart_event_task, "uart_event_task", 2048, NULL, 12, NULL);
+	xTaskCreate(uart_event_task, "uart_event_task", 2048, NULL, 12, &uart_task);
 
     auto cfg = spdif.defaultConfig();
     cfg.pin_data = spdif_pin;
@@ -87,7 +90,7 @@ void TLCDCEmu::init(int spdif_pin, int cdc_tx_pin, int cdc_rx_pin, const char *b
 
 	//Timer
 	timer_queue = xQueueCreate(10, sizeof(timer_event_t));
-    xTaskCreate(timer_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
+    xTaskCreate(timer_evt_task, "timer_evt_task", 2048, NULL, 5, &timer_task);
 }
 
 void TLCDCEmu::talk(){
