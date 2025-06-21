@@ -3,5 +3,6 @@
 
 #define I2S_BUFFER_COUNT 30
 #define I2S_BUFFER_SIZE 384
+#define USE_AUDIO_LOGGING false
 
 #endif
