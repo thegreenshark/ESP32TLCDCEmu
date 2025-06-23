@@ -1,8 +1,8 @@
 #include <TLCDCEmu.h>
 
-const int spdif_pin = 22;
-const int cdc_tx_pin = 15;
-const int cdc_rx_pin = 16;
+const int spdif_pin = 22;  //ESP32 SPDIF output ---> Head unit connector C3 pin 18
+const int cdc_tx_pin = 15; //ESP32 UART TX ---> Head unit connector C3 pin 14
+const int cdc_rx_pin = 16; //ESP32 UART RX <--- Head unit connector C3 pin 13
 
 TLCDCEmu emulator;
 
