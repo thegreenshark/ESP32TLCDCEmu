@@ -88,6 +88,8 @@ void TLCDCEmu::init(int spdif_pin, int cdc_tx_pin, int cdc_rx_pin, const char *b
     cfg.sample_rate = btSink.sample_rate();
     cfg.channels = 2;
     cfg.bits_per_sample = 16;
+    cfg.buffer_count = 30;
+    cfg.buffer_size = 384;
     spdif.begin(cfg);
 
     btSink.start(btName, true);
