@@ -48,7 +48,7 @@ int timeouts = 0;
 TLCDCEmu* pTLCDCEmu;
 
 SPDIFOutput spdif;
-BluetoothA2DPSink btSink(spdif);
+BluetoothA2DPSink btSink;
 
 static bool timer_alarm_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx);
 
@@ -59,6 +59,10 @@ static GPTimerWrap cdc_wait_timer(TIMERS_RESOLUTION_HZ, CDC_WAIT_TIMER_INTERVAL_
 static void reportHeapUsage();
 #endif
 
+// Write data to SPDIF in callback
+void bt_stream_callback(const uint8_t *data, uint32_t length) {
+    spdif.write(data, length);
+}
 
 TLCDCEmu::TLCDCEmu(){
 	pTLCDCEmu = this;
@@ -92,6 +96,7 @@ void TLCDCEmu::init(int spdif_pin, int cdc_tx_pin, int cdc_rx_pin, const char *b
     cfg.buffer_size = 384;
     spdif.begin(cfg);
 
+    btSink.set_stream_reader(bt_stream_callback, false);
     btSink.start(btName, true);
 
 	//Timer

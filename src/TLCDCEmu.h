@@ -25,6 +25,11 @@
 #include "esp32-hal-uart.h"
 
 #include "AudioConfigLocal.h"
+#include "AudioToolsConfig.h"
+
+//It helps to fix spdif audio artefacts (for example, when track is paused and buffer underflows)
+#define I2S_AUTO_CLEAR false //Intentionally redefine I2S_AUTO_CLEAR (originally defined in AudioToolsConfig.h)
+
 #include "AudioTools.h"
 #include "AudioTools/AudioLibs/SPDIFOutput.h"
 #include "BluetoothA2DPSink.h"
