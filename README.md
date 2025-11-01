@@ -24,7 +24,7 @@ Recommended values: R3 = 510 ohm, R4 = 100 ohm
 
 ### Installing
 This library has the following requirements:  
-[Espressif ESP32 Arduino core v3.3.1](https://github.com/espressif/arduino-esp32/releases/tag/3.3.1)  
+[Espressif ESP32 Arduino core v3.3.2](https://github.com/espressif/arduino-esp32/releases/tag/3.3.2)  
 [ESP32-A2DP v1.8.8](https://github.com/pschatzmann/ESP32-A2DP/releases/tag/v1.8.8)  
 [arduino-audio-tools v1.2.0](https://github.com/pschatzmann/arduino-audio-tools/releases/tag/v1.2.0)  
 
