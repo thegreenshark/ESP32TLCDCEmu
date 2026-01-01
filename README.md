@@ -24,9 +24,9 @@ Recommended values: R3 = 510 ohm, R4 = 100 ohm
 
 ### Installing
 This library has the following requirements:  
-[Espressif ESP32 Arduino core v3.3.2](https://github.com/espressif/arduino-esp32/releases/tag/3.3.2)  
+[Espressif ESP32 Arduino core v3.3.5](https://github.com/espressif/arduino-esp32/releases/tag/3.3.5)  
 [ESP32-A2DP v1.8.8](https://github.com/pschatzmann/ESP32-A2DP/releases/tag/v1.8.8)  
-[arduino-audio-tools v1.2.0](https://github.com/pschatzmann/arduino-audio-tools/releases/tag/v1.2.0)  
+[arduino-audio-tools v1.2.1](https://github.com/pschatzmann/arduino-audio-tools/releases/tag/v1.2.1)  
 
 Instructions on installing ESP32 Arduino core can be found [here](https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html). Make sure to install the correct version.
 
@@ -35,7 +35,7 @@ This library and the other requirements can be installed using git:
 cd /path/to/arduino/libraries/folder/
 git clone https://github.com/thegreenshark/ESP32TLCDCEmu
 git clone --branch v1.8.8 https://github.com/pschatzmann/ESP32-A2DP
-git clone --branch v1.2.0 https://github.com/pschatzmann/arduino-audio-tools
+git clone --branch v1.2.1 https://github.com/pschatzmann/arduino-audio-tools
 ```
 Or manually download and put them in the arduino libraries folder.
 
